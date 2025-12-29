@@ -1,0 +1,920 @@
+---
+title: "18_MultinicheNet_Visualization"
+author: "Jiating Wang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.width = 12, 
+  fig.height = 9,  
+  fig.align = "center"  
+)
+```
+
+## 1. Load Library and Data
+
+```{r}
+rm(list = ls())
+gc()
+library(patchwork)
+library(tidyverse)
+library(patchwork)
+library(SingleCellExperiment)
+library(dplyr)
+library(ggplot2)
+library(multinichenetr)
+library(Seurat)
+library(nichenetr)
+library(Seurat)
+library(qs)
+library(future)
+options(future.globals.maxSize = 1000 * 1024^2)
+```
+
+```{r}
+multinichenet_output <- readRDS('~/OneDrive_4_2025-3-8/data/multinichenet_output_new.rds')
+```
+
+## visualization
+
+```{r}
+senders_receivers = c("Basal.KC", "Inflammatory.KC", "Proliferating.KC", "Spinous.KC", 
+"Granular.KC", "Hair.follicle", "Sweet.Gland", "Schwann.Cell", 
+"Melanocyte", "CCL19..FB", "APCDD1..FB", "PI16..FB", "POSTN..FB", 
+"TNN..FB", "Arterial.EC", "Capillary.EC", "Venular.EC1", "Venular.EC2", 
+"Lymphatic.Endothelial", "Smooth.muscle", "Mast.cell", "Langerhans", 
+"cDC1", "cDC2A", "cDC2B", "pDC", "M1.like.Mac", "M2.like.Mac", 
+"SPP1.Mac", "TREM2.Mac", "CD8T", "Treg", "CD4.Naive", "Th17", 
+"CD8T.NK", "Th17.Treg", "NK", "Naive.B", "activated.B", "memory.B", 
+"Plasma") 
+```
+
+```{r}
+prioritized_tbl_oi_all = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 100, 
+  rank_per_group = T
+  )
+```
+
+```{r}
+prioritized_tbl_oi = 
+  multinichenet_output$prioritization_tables$group_prioritization_tbl %>%
+  filter(id %in% prioritized_tbl_oi_all$id) %>%
+  distinct(id, sender, receiver, ligand, receptor, group) %>% 
+  left_join(prioritized_tbl_oi_all)
+prioritized_tbl_oi$prioritization_score[is.na(prioritized_tbl_oi$prioritization_score)] = 0
+
+# senders_receivers = union(prioritized_tbl_oi$sender %>% unique(), prioritized_tbl_oi$receiver %>% unique()) %>%
+#   sort()
+senders_receivers = senders_receivers 
+
+subtype_cols= c("#E6194B", "#3CB44B", "#4363D8", "#FFE119", "#F58231", "#911EB4", "#46F0F0", "#F032E6", "#BCBD22", "#008080", "#E6BEFF", "#9A6324", "#FFFAC8", "#AAFFC3", "#FFD8B1",
+             "#000075", "#A9A9A9", "#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B",
+             "#E377C2", "#7F7F7F", "#17BECF", "#FF9898", "#C5B0D5", "#C49C94", "#F7B6D2", "#C7C7C7",
+             "#DBDB8D", "#9EDAE5", "#FFBB78", "#98DF8A", "#AEC7E8", "#FF9E9E", "#B5D0D9", "#D4B9D6",
+             "#FDB462", "#80B1D3")
+# colors_sender = RColorBrewer::brewer.pal(n = length(senders_receivers), name = 'Spectral') %>% 
+#   magrittr::set_names(senders_receivers)
+# colors_receiver = RColorBrewer::brewer.pal(n = length(senders_receivers), name = 'Spectral') %>% 
+#   magrittr::set_names(senders_receivers)
+colors_sender = subtype_cols%>% 
+   magrittr::set_names(senders_receivers)
+colors_receiver = subtype_cols%>% 
+   magrittr::set_names(senders_receivers)
+```
+
+```{r}
+#lr
+lr_network_all = readRDS('~/OneDrive_4_2025-3-8/multinechenetr-human-network/lr_network_human_allInfo_30112033.rds') %>% 
+  mutate(ligand = convert_alias_to_symbols(ligand, organism = "human"), 
+         receptor = convert_alias_to_symbols(receptor, organism = "human"))
+
+lr_network_all = lr_network_all  %>% mutate(ligand = make.names(ligand), receptor = make.names(receptor))
+lr_network = lr_network_all %>% distinct(ligand, receptor)
+
+#weight matrix
+# target genes in rows, ligands in columns
+ligand_target_matrix = readRDS('~/OneDrive_4_2025-3-8/multinechenetr-human-network/ligand_target_matrix_nsga2r_final.rds')
+colnames(ligand_target_matrix) = colnames(ligand_target_matrix) %>% convert_alias_to_symbols(organism = "human") %>% make.names()
+rownames(ligand_target_matrix) = rownames(ligand_target_matrix) %>% convert_alias_to_symbols(organism = "human") %>% make.names()
+
+lr_network = lr_network %>% filter(ligand %in% colnames(ligand_target_matrix))
+ligand_target_matrix = ligand_target_matrix[, lr_network$ligand %>% unique()]
+```
+
+```{r}
+contrasts_oi = c("'CTB_BL-CTB_T','CTB_T-CTB_BL'")
+contrast_tbl = tibble(contrast = c('CTB_BL-CTB_T','CTB_T-CTB_BL'), group = c("CTB_BL","CTB_T"))
+receiver_oi = "Th17.Treg"
+group_oi = "CTB_BL"
+senders_oi  = c("M1.like.Mac", "M2.like.Mac", "SPP1.Mac", "TREM2.Mac")
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+group_oi = "CTB_BL"
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = "SPP1.Mac",
+  receivers_oi = "Th17.Treg"
+) 
+plot_oi = make_sample_lr_prod_activity_plots_Omnipath(
+  multinichenet_output$prioritization_tables, 
+  prioritized_tbl_oi_M_50 %>% inner_join(lr_network_all)
+)
+plot_oi
+```
+
+```{r}
+group_oi = "CTB_BL"
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = "Th17.Treg",
+  receivers_oi = "SPP1.Mac",
+) 
+plot_oi = make_sample_lr_prod_activity_plots_Omnipath(
+  multinichenet_output$prioritization_tables, 
+  prioritized_tbl_oi_M_50 %>% inner_join(lr_network_all)
+)
+plot_oi
+```
+
+```{r}
+group_oi = "CTB_BL"
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = "Th17.Treg",
+  receivers_oi = c("M1.like.Mac", "M2.like.Mac", "SPP1.Mac", "TREM2.Mac"),
+) 
+plot_oi = make_sample_lr_prod_activity_plots_Omnipath(
+  multinichenet_output$prioritization_tables, 
+  prioritized_tbl_oi_M_50 %>% inner_join(lr_network_all)
+)
+plot_oi
+```
+
+```{r}
+group_oi = "CTB_BL"
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = "CCL19..FB",
+  receivers_oi = c("M1.like.Mac", "M2.like.Mac", "SPP1.Mac", "TREM2.Mac"),
+) 
+plot_oi = make_sample_lr_prod_activity_plots_Omnipath(
+  multinichenet_output$prioritization_tables, 
+  prioritized_tbl_oi_M_50 %>% inner_join(lr_network_all)
+)
+plot_oi
+```
+
+```{r}
+group_oi = "CTB_BL"
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = "CCL19..FB",
+  receivers_oi =  "SPP1.Mac"
+) 
+plot_oi = make_sample_lr_prod_activity_plots_Omnipath(
+  multinichenet_output$prioritization_tables, 
+  prioritized_tbl_oi_M_50 %>% inner_join(lr_network_all)
+)
+plot_oi
+```
+
+```{r}
+group_oi = "CTB_BL"
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = "CCL19..FB",
+  receivers_oi = "TREM2.Mac"
+) 
+plot_oi = make_sample_lr_prod_activity_plots_Omnipath(
+  multinichenet_output$prioritization_tables, 
+  prioritized_tbl_oi_M_50 %>% inner_join(lr_network_all)
+)
+plot_oi
+```
+
+```{r}
+receiver_oi = "Th17.Treg"
+group_oi = "CTB_BL"
+senders_oi  = "M1.like.Mac"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+receiver_oi = "Th17.Treg"
+group_oi = "CTB_BL"
+senders_oi  = "M2.like.Mac"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+group_oi = "CTB_BL"
+senders_oi = "Th17.Treg"
+receiver_oi  = "SPP1.Mac"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 5, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+group_oi = "CTB_BL"
+senders_oi  = "SPP1.Mac"
+receiver_oi = "Th17.Treg"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 5, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+receiver_oi = "Th17.Treg"
+group_oi = "CTB_BL"
+senders_oi  = "TREM2.Mac"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+senders_oi ="Th17.Treg"
+group_oi = "CTB_BL"
+receiver_oi = "M1.like.Mac"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 5, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+senders_oi ="Th17.Treg"
+group_oi = "CTB_BL"
+receiver_oi = "M2.like.Mac"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 5, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+senders_oi ="Th17.Treg"
+group_oi = "CTB_BL"
+receiver_oi = "SPP1.Mac"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 5, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+senders_oi ="Th17.Treg"
+group_oi = "CTB_BL"
+receiver_oi = "TREM2.Mac"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 5, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+group_oi = "CTB_BL"
+receiver_oi = "SPP1.Mac"
+top_n_target = 250
+
+lr_target_prior_cor_filtered = multinichenet_output$lr_target_prior_cor %>%
+  inner_join(
+    multinichenet_output$ligand_activities_targets_DEgenes$ligand_activities %>% 
+      distinct(ligand, target, direction_regulation, contrast)
+    ) %>% 
+  inner_join(contrast_tbl) %>% filter(group == group_oi, receiver == receiver_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>% 
+  filter(direction_regulation == "up") %>% 
+  filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>% 
+  filter(direction_regulation == "down") %>% 
+  filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50)) # downregulation -- negative correlation
+lr_target_prior_cor_filtered = bind_rows(
+  lr_target_prior_cor_filtered_up, 
+  lr_target_prior_cor_filtered_down)
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  groups_oi = group_oi, 
+  receivers_oi = receiver_oi)
+lr_target_correlation_plot = make_lr_target_correlation_plot(
+  multinichenet_output$prioritization_tables, 
+  prioritized_tbl_oi,  
+  lr_target_prior_cor_filtered , 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  receiver_oi,
+  plot_legend = FALSE)
+lr_target_correlation_plot$combined_plot
+```
+
+```{r}
+# ligand_oi = "TNF"
+# receptor_oi = "TNFRSF1A"
+ligand_oi = "CSF2"
+receptor_oi = "IL3RA"
+sender_oi = "Th17.Treg"
+receiver_oi = "SPP1.Mac"
+lr_target_scatter_plot = make_lr_target_scatter_plot(
+  multinichenet_output$prioritization_tables, 
+  ligand_oi, receptor_oi, sender_oi, receiver_oi, 
+  multinichenet_output$celltype_info, 
+  multinichenet_output$grouping_tbl, 
+  lr_target_prior_cor_filtered)
+lr_target_scatter_plot
+```
+
+```{r}
+group_oi = "CTB_BL"
+sender_oi = "SPP1.Mac"
+top_n_target = 250
+
+lr_target_prior_cor_filtered = multinichenet_output$lr_target_prior_cor %>%
+  inner_join(
+    multinichenet_output$ligand_activities_targets_DEgenes$ligand_activities %>% 
+      distinct(ligand, target, direction_regulation, contrast)
+    ) %>% 
+  inner_join(contrast_tbl) %>% filter(group == group_oi, sender == sender_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>% 
+  filter(direction_regulation == "up") %>% 
+  filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>% 
+  filter(direction_regulation == "down") %>% 
+  filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50)) # downregulation -- negative correlation
+lr_target_prior_cor_filtered = bind_rows(
+  lr_target_prior_cor_filtered_up, 
+  lr_target_prior_cor_filtered_down)
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  groups_oi = group_oi, 
+  senders_oi = sender_oi)
+lr_target_correlation_plot = make_lr_target_correlation_plot(
+  multinichenet_output$prioritization_tables, 
+  prioritized_tbl_oi,  
+  lr_target_prior_cor_filtered , 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  sender_oi,
+  plot_legend = FALSE)
+lr_target_correlation_plot$combined_plot
+```
+
+```{r}
+# prioritized_tbl_oi_all = get_top_n_lr_pairs(
+#   multinichenet_output$prioritization_tables, 
+#   top_n = 100, 
+#   rank_per_group = T
+#   )
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 50, 
+  groups_oi = NULL, 
+  senders_oi = NULL,
+  receivers_oi = c("SPP1.Mac"))
+
+```
+
+```{r}
+top_n_target = 250
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  50, 
+  rank_per_group = T)
+
+lr_target_prior_cor_filtered = 
+  multinichenet_output$prioritization_tables$group_prioritization_tbl$group %>% unique() %>% 
+  lapply(function(group_oi){
+    lr_target_prior_cor_filtered = multinichenet_output$lr_target_prior_cor %>%
+      inner_join(
+        multinichenet_output$ligand_activities_targets_DEgenes$ligand_activities %>%
+          distinct(ligand, target, direction_regulation, contrast)
+        ) %>% 
+      inner_join(contrast_tbl) %>% filter(group == group_oi)
+    
+    lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>% 
+      filter(direction_regulation == "up") %>% 
+      filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+    
+    lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>% 
+      filter(direction_regulation == "down") %>% 
+      filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50))
+    lr_target_prior_cor_filtered = bind_rows(
+      lr_target_prior_cor_filtered_up, 
+      lr_target_prior_cor_filtered_down
+      )
+}) %>% bind_rows()
+
+lr_target_df = lr_target_prior_cor_filtered %>% 
+  distinct(group, sender, receiver, ligand, receptor, id, target, direction_regulation) 
+```
+
+```{r}
+# network = infer_intercellular_regulatory_network(lr_target_df, prioritized_tbl_oi)
+
+network = infer_intercellular_regulatory_network(lr_target_df, prioritized_tbl_oi_M_50)
+network$links %>% head()
+network$nodes %>% head()
+```
+
+```{r}
+network_graph = visualize_network(network, colors_sender)
+network_graph$plot
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  50, 
+  senders_oi = NULL, 
+  receivers_oi = c("CCL19..FB","SPP1.Mac", "TREM2.Mac","Th17.Treg"),
+  rank_per_group = T)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  senders_oi = NULL, 
+  receivers_oi = c("CCL19..FB"),
+  rank_per_group = T)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+circos_list1$CTB_BL
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lrci_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  senders_oi = NULL, 
+  receivers_oi = c("SPP1.Mac", "TREM2.Mac"),
+  rank_per_group = T)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+circos_list1$CTB_BL
+```
+
+```{r}
+network = infer_intercellular_regulatory_network(lr_target_df, prioritized_tbl_oi)
+network_graph = visualize_network(network, colors_sender)
+network_graph$plot
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  50, 
+  senders_oi = c("CCL19..FB","SPP1.Mac", "TREM2.Mac","Th17.Treg"),
+  receivers_oi = NULL, 
+  rank_per_group = T)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  senders_oi = c("CCL19..FB"),
+  receivers_oi = NULL, 
+  rank_per_group = F)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+circos_list1$CTB_BL
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  senders_oi = c("SPP1.Mac", "TREM2.Mac"),
+  receivers_oi = NULL, 
+  rank_per_group = T)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+circos_list1$CTB_BL
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  senders_oi = "SPP1.Mac",
+  receivers_oi = "Th17.Treg", 
+  rank_per_group = T)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+circos_list1$CTB_BL
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  receivers_oi= "SPP1.Mac",
+  senders_oi = "Th17.Treg", 
+  rank_per_group = T)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+circos_list1$CTB_BL
+```
+
+```{r}
+network = infer_intercellular_regulatory_network(lr_target_df, prioritized_tbl_oi)
+network_graph = visualize_network(network, colors_sender)
+network_graph$plot
+
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  senders_oi = c("Th17.Treg"),
+  receivers_oi = NULL, 
+  rank_per_group = T)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+circos_list1$CTB_BL
+```
+
+```{r}
+prioritized_tbl_oi = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  10, 
+  senders_oi = NULL, 
+  receivers_oi = c("Th17.Treg"),
+  rank_per_group = T)
+prioritized_tbl_bl <- prioritized_tbl_oi %>%
+  filter(group == 'CTB_BL' & prioritization_score > 0) %>%
+  mutate(
+    sender = factor(sender, levels = senders_receivers),
+    receiver = factor(receiver, levels = senders_receivers)
+  ) %>%
+  arrange(sender, receiver)
+
+circos_list1 = make_circos_group_comparison(prioritized_tbl_bl, colors_sender, colors_receiver)
+circos_list1$CTB_BL
+```
+
+```{r}
+ligand_oi = "CSF2"
+receptor_oi = "IL3RA"
+sender_oi = "Th17.Treg"
+receiver_oi = "TREM2.Mac"
+lr_target_scatter_plot = make_lr_target_scatter_plot(
+  multinichenet_output$prioritization_tables, 
+  ligand_oi, receptor_oi, sender_oi, receiver_oi, 
+  multinichenet_output$celltype_info, 
+  multinichenet_output$grouping_tbl, 
+  lr_target_prior_cor_filtered)
+lr_target_scatter_plot
+```
+
+```{r}
+ligand_oi = "CSF2"
+receptor_oi = "CSF1R"
+sender_oi = "Th17.Treg"
+receiver_oi = "TREM2.Mac"
+lr_target_scatter_plot = make_lr_target_scatter_plot(
+  multinichenet_output$prioritization_tables, 
+  ligand_oi, receptor_oi, sender_oi, receiver_oi, 
+  multinichenet_output$celltype_info, 
+  multinichenet_output$grouping_tbl, 
+  lr_target_prior_cor_filtered)
+lr_target_scatter_plot
+```
+
+```{r}
+ligand_oi = "TNF"
+receptor_oi = "TNFRSF1A"
+sender_oi = "Th17.Treg"
+receiver_oi = "TREM2.Mac"
+lr_target_scatter_plot = make_lr_target_scatter_plot(
+  multinichenet_output$prioritization_tables, 
+  ligand_oi, receptor_oi, sender_oi, receiver_oi, 
+  multinichenet_output$celltype_info, 
+  multinichenet_output$grouping_tbl, 
+  lr_target_prior_cor_filtered)
+lr_target_scatter_plot
+```
+
+```{r}
+ligand_oi = "CD40LG"
+receptor_oi = "ITGAM"
+sender_oi = "Th17"
+receiver_oi = "TREM2.Mac"
+lr_target_scatter_plot = make_lr_target_scatter_plot(
+  multinichenet_output$prioritization_tables, 
+  ligand_oi, receptor_oi, sender_oi, receiver_oi, 
+  multinichenet_output$celltype_info, 
+  multinichenet_output$grouping_tbl, 
+  lr_target_prior_cor_filtered)
+lr_target_scatter_plot
+```
+
+```{r}
+senders_oi ="Th17.Treg"
+group_oi = "CTB_BL"
+receiver_oi = "TREM2.Mac"
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```
+
+```{r}
+senders_oi ="Th17.Treg"
+group_oi = "CTB_BL"
+receiver_oi =  c("M1.like.Mac", "M2.like.Mac", "SPP1.Mac", "TREM2.Mac")
+
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(
+  multinichenet_output$prioritization_tables, 
+  top_n = 10, 
+  groups_oi = group_oi, 
+  senders_oi = senders_oi,
+  receivers_oi = receiver_oi)
+combined_plot = make_ligand_activity_target_plot(
+  group_oi, 
+  receiver_oi, 
+  prioritized_tbl_oi_M_10,
+  multinichenet_output$prioritization_tables, 
+  multinichenet_output$ligand_activities_targets_DEgenes, 
+  contrast_tbl, 
+  multinichenet_output$grouping_tbl, 
+  multinichenet_output$celltype_info, 
+  ligand_target_matrix, 
+  plot_legend = FALSE)
+combined_plot$combined_plot
+```

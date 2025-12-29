@@ -1,0 +1,361 @@
+---
+title: "Spatial Distance"
+author: "Jiating Wang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.width = 12, 
+  fig.height = 9,  
+  fig.align = "center"  
+)
+```
+
+## Load Data and Source Plot Function
+
+```{r}
+rm(list = ls())
+library(patchwork)
+library(Seurat)
+library(qs)
+library(phenoptr)
+library(tidyverse)
+gc()
+
+library(data.table)
+ctb_csd <- data.table::fread("/home/data/gz0436/OneDrive_4_2025-3-8/semla_output/ctb_csd_data.csv")
+head(ctb_csd)
+
+source("/home/data/gz0436/OneDrive_4_2025-3-8/scripts/15_Plot_distance_func.R")
+```
+
+## Calculate Spatial Distance in CTB1_BL
+
+```{r}
+ctb1_with_distance <- calculate_sample_distances(ctb_csd, "CTB1_NT")
+glimpse(ctb1_with_distance)
+```
+
+### Plot cell distance
+
+```{r fig.width=12, fig.height=9}
+plot_cell_distance(ctb1_with_distance, "SPP1 Mac", metric = "median")
+```
+
+```{r fig.width=12, fig.height=9}
+plot_cell_distance(ctb1_with_distance, "Th17_Treg", metric = "median")
+```
+
+```{r fig.width=12, fig.height=9}
+plot_cell_distance(ctb1_with_distance, "TREM2 Mac", metric = "median")
+```
+
+```{r fig.width=12, fig.height=9}
+plot_cell_distance(ctb1_with_distance, "CCL19+ FB", metric = "median")
+```
+
+### Plot distance density
+
+```{r fig.width=12, fig.height=9}
+plot_distance_density(ctb1_with_distance,"SPP1 Mac")
+```
+
+```{r fig.width=12, fig.height=9}
+plot_distance_density(ctb1_with_distance,"SPP1 Mac",
+  highlight_types = c("SPP1 Mac", "Th17_Treg", "CCL19+ FB", "Langerhans"))
+```
+
+### Plot relative abundance
+
+```{r fig.width=12, fig.height=9}
+plot_relative_abundance(ctb1_with_distance, "SPP1 Mac")
+```
+
+```{r fig.width=12, fig.height=9}
+plot_relative_abundance(ctb1_with_distance,"Th17_Treg")
+```
+
+### Plot spatial distribution
+
+```{r fig.width=12, fig.height=9}
+csd_1bl <- ctb_csd %>% 
+    dplyr::filter(Sample == "CTB1_NT")
+plot_spatial_distribution(csd_1bl)
+```
+
+### Plot nearest neighbors
+
+```{r fig.width=12, fig.height=9}
+plot_nearest_neighbors(ctb1_with_distance, "SPP1 Mac", "Th17_Treg", show_arrows = F)
+```
+
+```{r}
+plot_nearest_neighbors(ctb1_with_distance, "SPP1 Mac", "Th17_Treg")
+```
+
+```{r}
+plot_nearest_neighbors(ctb1_with_distance, "Th17_Treg", "SPP1 Mac")
+```
+
+```{r}
+plot_nearest_neighbors(ctb1_with_distance, "SPP1 Mac", "CCL19+ FB")
+```
+
+```{r}
+plot_nearest_neighbors(ctb1_with_distance, "SPP1 Mac", "cDC2A")
+```
+
+### Cells within a radius
+
+```{r}
+count_within(csd_1bl, from='SPP1 Mac', to='Th17_Treg', radius=c(25, 50))
+```
+
+-   ​**​`from_count`​**​：共有 1547 个 `SPP1 Mac`细胞。
+
+-   ​**​`to_count`​**​：共有 146 个 `Th17_Treg`细胞。
+
+-   ​**​`from_with`​**​：85 个 `SPP1 Mac`细胞的周围 25μm 内存在至少 1 个 `Th17_Treg`细胞。
+
+-   ​**​`within_mean`​**​：每个 `SPP1 Mac`细胞周围平均有 0.056 个 `Th17_Treg`细胞（在 25μm 半径内）。
+
+```{r}
+count_within(csd_1bl, from='Th17_Treg', to='SPP1 Mac', radius=c(25, 50))
+```
+
+-   ​**​`from_count`​**​：共有 146 个 `Th17_Treg`细胞。
+
+-   ​**​`to_count`​**​：共有 1547 个 `SPP1 Mac`细胞。
+
+-   ​**​`from_with`​**​：52 个 `Th17_Treg`细胞的周围 25μm 内存在至少 1 个 `SPP1 Mac`细胞。
+
+-   ​**​`within_mean`​**​：每个 `Th17_Treg`细胞周围平均有 0.6个 `SPP1 Mac`细胞（在 25μm 半径内）。
+
+## Calculate Spatial Distance in CTB1_T
+
+```{r}
+table(ctb_csd$Sample)
+```
+
+```{r}
+ctb1_t_with_distance <- calculate_sample_distances(ctb_csd, "CTB1_T")
+glimpse(ctb1_t_with_distance)
+```
+
+### Plot cell distance in CTB1_T
+
+```{r}
+plot_cell_distance(ctb1_t_with_distance, "SPP1 Mac", metric = "median")
+```
+
+```{r}
+plot_cell_distance(ctb1_t_with_distance, "Th17_Treg", metric = "median")
+```
+
+### Plot nearest neighbors in CTB1_T
+
+```{r}
+plot_nearest_neighbors(ctb1_t_with_distance, "SPP1 Mac", "Th17_Treg")
+```
+
+```{r}
+plot_nearest_neighbors(ctb1_t_with_distance, "Th17_Treg", "SPP1 Mac")
+```
+
+## Calculate Spatial Distance in CTB3_BL
+
+```{r}
+ctb3_bl_with_distance <- calculate_sample_distances(ctb_csd, "CTB3_NT")
+
+plot_cell_distance(ctb3_bl_with_distance, "SPP1 Mac", metric = "median")
+```
+
+## Calculate Spatial Distance in CTB3_T
+
+```{r}
+ctb3_t_with_distance <- calculate_sample_distances(ctb_csd, "CTB3_T")
+```
+
+## Calculate Spatial Distance in CTB7_BL
+
+```{r}
+ctb7_bl_with_distance <- calculate_sample_distances(ctb_csd, "CTB7_NT")
+```
+
+## Calculate Spatial Distance in CTB7_T
+
+```{r}
+ctb7_t_with_distance <- calculate_sample_distances(ctb_csd, "CTB7_T")
+```
+
+```{r}
+qsave(ctb1_with_distance, "~/OneDrive_4_2025-3-8/data/ctb1_bl_with_distance.qs")
+qsave(ctb1_t_with_distance, "~/OneDrive_4_2025-3-8/data/ctb1_t_with_distance.qs")
+qsave(ctb3_bl_with_distance, "~/OneDrive_4_2025-3-8/data/ctb3_bl_with_distance.qs")
+qsave(ctb3_t_with_distance, "~/OneDrive_4_2025-3-8/data/ctb3_t_with_distance.qs")
+qsave(ctb7_bl_with_distance, "~/OneDrive_4_2025-3-8/data/ctb7_bl_with_distance.qs")
+qsave(ctb7_t_with_distance, "~/OneDrive_4_2025-3-8/data/ctb7_t_with_distance.qs")
+```
+
+## Read Ctb_With_Distance Data
+
+```{r}
+ctb1_bl_with_distance <- qread("~/OneDrive_4_2025-3-8/data/ctb1_bl_with_distance.qs")
+ctb1_t_with_distance <- qread("~/OneDrive_4_2025-3-8/data/ctb1_t_with_distance.qs")
+ctb3_bl_with_distance <- qread("~/OneDrive_4_2025-3-8/data/ctb3_bl_with_distance.qs")
+ctb3_t_with_distance <- qread("~/OneDrive_4_2025-3-8/data/ctb3_t_with_distance.qs")
+ctb7_bl_with_distance <- qread("~/OneDrive_4_2025-3-8/data/ctb7_bl_with_distance.qs")
+ctb7_t_with_distance <- qread("~/OneDrive_4_2025-3-8/data/ctb7_t_with_distance.qs")
+```
+
+```{r}
+ctb_with_distance <- rbind(ctb1_bl_with_distance,
+                           ctb1_t_with_distance,
+                           ctb3_bl_with_distance,
+                           ctb3_t_with_distance,
+                           ctb7_bl_with_distance,
+                           ctb7_t_with_distance)
+```
+
+```{r}
+ctb_with_distance$Group <- ifelse(grepl("NT",ctb_with_distance$Sample),"CTB_BL",
+                                  "CTB_T")
+table(ctb_with_distance$Group, ctb_with_distance$Sample)
+```
+
+```{r}
+rm(ctb1_bl_with_distance,
+   ctb1_t_with_distance,
+   ctb3_bl_with_distance,
+   ctb3_t_with_distance,
+   ctb7_bl_with_distance,
+   ctb7_t_with_distance);gc()
+```
+
+## Calculate Distance across all samples
+
+```{r}
+plot_cell_distance(ctb_with_distance, "SPP1 Mac", metric = "median")
+```
+
+```{r}
+library(ggrastr)
+plot_cell_distance(ctb_with_distance, "Th17_Treg", metric = "median")
+```
+
+```{r}
+plot_cell_distance(ctb_with_distance, "CCL19+ FB", metric = "median")
+```
+
+## Compare_cell_distance
+
+```{r}
+source("/home/data/gz0436/OneDrive_4_2025-3-8/scripts/15_Plot_distance_func.R")
+result <- compare_cell_distance(
+  data = ctb_with_distance,
+  source_cell_type = "Th17_Treg",
+  target_cell_type = "SPP1 Mac",
+  group_col = "Group",
+  sample_col = "Sample",
+  phenotype_col = "Phenotype",
+  metric = "median",
+  test_method = "t.test"
+)
+```
+
+## Compare_cell_distance_all_cells
+
+```{r}
+source("/home/data/gz0436/OneDrive_4_2025-3-8/scripts/15_Plot_distance_func.R")
+result <- compare_cell_distance_all_cells(
+  data = ctb_with_distance,
+  source_cell_type = "Th17_Treg",
+  target_cell_type = "SPP1 Mac",
+  group_col = "Group",
+  sample_col = "Sample",
+  phenotype_col = "Phenotype",
+  test_method = "t.test"
+)
+```
+
+```{r}
+result <- compare_cell_distance_all_cells(
+  data = ctb_with_distance,
+  target_cell_type = "Th17_Treg",
+  source_cell_type = "SPP1 Mac",
+  group_col = "Group",
+  sample_col = "Sample",
+  phenotype_col = "Phenotype",
+  test_method = "t.test"
+)
+```
+
+```{r}
+result <- compare_cell_distance_all_cells(
+  data = ctb_with_distance,
+  source_cell_type = "CCL19+ FB",
+  target_cell_type = "SPP1 Mac",
+  group_col = "Group",
+  sample_col = "Sample",
+  phenotype_col = "Phenotype",
+  test_method = "t.test"
+)
+```
+
+```{r}
+result <- compare_cell_distance_all_cells(
+  data = ctb_with_distance,
+  source_cell_type = "Th17",
+  target_cell_type = "SPP1 Mac",
+  group_col = "Group",
+  sample_col = "Sample",
+  phenotype_col = "Phenotype",
+  test_method = "t.test"
+)
+```
+
+```{r}
+result <- compare_cell_distance_all_cells(
+  data = ctb_with_distance,
+  source_cell_type = "Treg",
+  target_cell_type = "SPP1 Mac",
+  group_col = "Group",
+  sample_col = "Sample",
+  phenotype_col = "Phenotype",
+  test_method = "t.test"
+)
+```
+
+```{r}
+result <- compare_cell_distance_all_cells(
+  data = ctb_with_distance,
+  source_cell_type = "TREM2 Mac",
+  target_cell_type = "SPP1 Mac",
+  group_col = "Group",
+  sample_col = "Sample",
+  phenotype_col = "Phenotype",
+  test_method = "t.test"
+)
+```
+
+```{r}
+result <- compare_cell_distance_all_cells(
+  data = ctb_with_distance,
+  source_cell_type = "Treg",
+  target_cell_type = "SPP1 Mac",
+  group_col = "Group",
+  sample_col = "Sample",
+  phenotype_col = "Phenotype",
+  test_method = "t.test"
+)
+```
+
+rasterise(result\$boxplot, dpi=300)
+
+```{r}
+result$boxplot
+
+```
