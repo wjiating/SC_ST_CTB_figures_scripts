@@ -2,7 +2,7 @@
 A Spatiotemporal Single-Cell Atlas of Cutaneous Tuberculosis Infection and Treatment Response
 
 ## Repository Contents
-** This repository contains code modules for advanced analysis of single-cell and spatial transcriptomic data, focusing on cell type deconvolution, cellular communication, and spatial tissue organization. The directory structure and brief descriptions are as follows: **
+**This repository contains code modules for advanced analysis of single-cell and spatial transcriptomic data, focusing on cell type deconvolution, cellular communication, and spatial tissue organization. The directory structure and brief descriptions are as follows:**
 - deconvolution_RCTD/​ - Contains scripts for cell-type deconvolution of spatial transcriptomics data using the RCTD (Robust Cell Type Decomposition) tool.
 - decoupleR_score/​ - Includes code for calculating pathway activity scores at the single-cell or spot level using the decoupleR tool.
 - pyscenic/​ - Houses the workflow for running pySCENIC to infer gene regulatory networks and analyze transcription factor activity.
