@@ -8,8 +8,8 @@ A Spatiotemporal Single-Cell Atlas of Cutaneous Tuberculosis Infection and Treat
 | **`decoupleR_score/`** | Calculation of pathway activity scores at single-cell/spot resolution using the **decoupleR** tool. |
 | **`pyscenic/`** | Inference of gene regulatory networks and transcription factor activity via the **pySCENIC** workflow. |
 | **`single_cell_cellcrosstalk/`** | Analysis of cell-cell communication from single-cell data. |
-| **`spatial_distance_calculation/`** | Quantification of spatial distances between different cell types or features within tissue sections. |
-| **`spatial_niche_analysis/`** | Identification and characterization of spatial cellular niches (microenvironments). |
+| **`spatial_distance_calculation/`** | Quantification of spatial distances between different cell types within tissue sections. |
+| **`spatial_niche_analysis/`** | Identification and characterization of spatial cellular niches. |
 | **`spatial_NMF_analysis/`** | Dimensionality reduction and pattern discovery in spatial data using **Non-negative Matrix Factorization (NMF)**. |
 
 ## Data Availability
